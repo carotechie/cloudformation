@@ -1,0 +1,34 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: "EC2 | env: PROD | instance: 1 | app: miaplicacion"
+Resources:
+EC2Instance1:
+Type: AWS::EC2::Instance
+Properties:
+ImageId: ”ami-12345678”    #usen el ami-id de la AMI que elijan
+KeyName: “SSH-MYKEY”   #usen la key que crearon
+InstanceType: t2.micro
+IamInstanceProfile: app-testbox  
+SubnetId: subnet-a15481UserData:
+Fn::Base64: !Sub |
+#!/bin/bash
+## run scripts left for previous images to ensure proper setup
+mkdir -p /opt/devops/
+## eof
+SecurityGroupIds:
+   - sg-2345556
+Tags: [
+{
+"Key": "Environment",
+"Value": ‘PROD',
+}, {
+"Key": "Name",
+"Value": ‘miaplicacion',
+]
+
+# Extra EBS Devices
+BlockDeviceMappings: 
+- DeviceName: "/dev/xvda”  
+  Ebs: 
+     DeleteOnTermination: "true"       
+     VolumeSize: "20" 
+

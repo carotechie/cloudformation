@@ -1,0 +1,47 @@
+
+AWSTemplateFormatVersion: '2010-09-09'
+Description: "EC2 | env: PROD | instance: 1 | app: miaplicacion"
+Resources:
+EC2Instance1:
+Type: AWS::EC2::Instance
+Properties:
+ImageId: ”ami-12345678"
+KeyName: “SSH-MYKEY”
+InstanceType: t2.micro
+IamInstanceProfile: app-testbox
+SubnetId: subnet-a15481UserData:
+Fn::Base64: !Sub |
+#!/bin/bash
+## run scripts left for previous images to ensure proper setup
+mkdir -p /opt/devops/
+## eof
+SecurityGroupIds:
+   - sg-2345556
+Tags: [
+{
+"Key": "Environment",
+"Value": ‘PROD',
+}, {
+"Key": "Name",
+"Value": ‘miaplicacion',
+]
+
+# Extra EBS Devices
+
+BlockDeviceMappings:
+ - DeviceName: "/dev/xvda”  
+   Ebs: 
+       DeleteOnTermination: "true"       
+       VolumeSize: "20" 
+
+HostRecord:
+Type: "AWS::Route53::RecordSet"
+Properties:
+HostedZoneName: “prod.com”
+Comment: "DNS name for my instance."
+Name: ”miaplicacion.1.prod.com"
+Type: "A"
+TTL: "300"
+ResourceRecords: [ { "Fn::GetAtt" : [ "EC2Instance1", "PrivateIp" ] } ]
+
+
