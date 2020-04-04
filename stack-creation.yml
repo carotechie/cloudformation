@@ -1,0 +1,75 @@
+
+
+---
+# to run  ansible-playbook -i [wherever your inventory for localhost]  ./jenkins_autobuild.yml
+- hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    app: "{{ lookup('env','CFG_APP_NAME') }}"
+    env: "BUILD-BUILD"
+    build_no: "{{ lookup('env','CFG_APP_BUILD_NUMBER') }}"
+    instance: 1
+    owner: test
+    local_app_var: "{{ (app_var[env] | default({}))[instance|int] | default({}) }}"
+    git_local_dest: "/tmp/cloudformation"
+    update_route53: true
+    region: "us-west-1"
+    ec2_name: "{{ lookup('env','ENV_EC2_NAME') }}"
+    env_instance: "{{ env }}{{ instance }}"
+    
+  vars_files:
+    - roles/aws-cfn/defaults/aws_defaults.yml
+    - roles/aws-cfn/defaults/{{ app }}.yml
+
+  pre_tasks:
+    - debug:
+        var: env
+
+    - name: template directory exists
+      file:
+        path: "{{ git_local_dest }}/{{ env }}/{{ instance }}/{{ app }}"
+        state: directory
+     - name: generate template EC2
+        copy:
+             src: miapp.yml
+             dest: "{{ git_local_dest }}/{{ env }}/{{ instance }}/{{ app }}/cfn-{{ app }}.yml"
+        when: deployment_type == "ec2_only"
+    
+  tasks:
+ 
+    - name: Set Stack Name
+      set_fact:
+        cfn_stack_name: "{{ env }}-{{ instance }}-{{ app }}-{{ build_no }}"
+      when: deployment_type != "devbox"
+    
+    - name: whats the file
+      debug: var=item
+      with_file:
+        - "{{ git_local_dest }}/{{ env }}/{{ instance }}/{{ app }}/cfn-{{ app }}.yml"
+
+    - name: launch ansible cloudformation
+      cloudformation:
+        stack_name: "{{ cfn_stack_name }}"
+        state: "present"
+        region: "{{ region }}"
+        disable_rollback: false
+        template: "{{ git_local_dest }}/{{ env }}/{{ instance }}/{{ app }}/cfn-{{ app }}.yml"
+      register: cfn_result
+    
+    - debug:
+        var: cfn_result
+    
+    - local_action:
+        module: copy
+        content: "{{ cfn_result }}"
+        dest: /opt/cfn_result.txt
+      become: true
+
+    - name: template directory removed
+      file:
+        path: "{{ git_local_dest }}/{{ env }}/{{ instance }}/{{ app }}"
+        state: absent
+
+
